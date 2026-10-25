@@ -1,5 +1,4 @@
-# Privacy-Preserving Smart Classroom Occupancy Detection and Energy
-Management
+# Privacy-Preserving Smart Classroom Occupancy Detection and Energy Management
 
 ## 1. Project Overview
 
