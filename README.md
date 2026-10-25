@@ -1,4 +1,5 @@
-# AI-Based Smart Classroom Attendance and Energy Management System
+# Privacy-Preserving Smart Classroom Occupancy Detection and Energy
+Management
 
 ## 1. Project Overview
 
