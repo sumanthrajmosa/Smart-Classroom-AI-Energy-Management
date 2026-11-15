@@ -1,199 +1,220 @@
-# Privacy-Preserving Smart Classroom Occupancy Detection and Energy Management
+# Optimized Sensor-Based Energy Efficient Smart Classroom
 
-## 1. Project Overview
+**Team 107 · Amrita Vishwa Vidyapeetham · School of Computing**
 
-The **AI-Based Smart Classroom Attendance and Energy Management System** is an IoT-based project designed to automate classroom entry/exit monitoring, occupancy detection, attendance management, and energy optimization using Artificial Intelligence and embedded systems.
+A smart-classroom project intended to support occupancy-aware classroom monitoring and energy management. The current demonstrated software workflow is a Raspberry Pi camera image-processing pipeline connected to a FastAPI backend and a React/Vite dashboard.
 
-The system uses a Raspberry Pi and camera to detect people, track their movement, and identify whether they are entering or leaving the classroom. Occupancy information can then be used to control classroom lighting and fans, helping reduce unnecessary energy consumption.
+> **Implementation status:** The current working demonstration described in the project discussions is the Approach B image-to-dashboard workflow. RFID attendance, ESP32 sensor fusion and relay-based automatic appliance control are part of the broader system design and should be marked as integrated only after their hardware tests are completed.
 
-## 2. Objectives
+## Current prototype
 
-- Detect people entering and exiting the classroom.
-- Use YOLO for real-time person detection.
-- Use ByteTrack to track detected people across video frames.
-- Identify entry and exit events using virtual line crossing.
-- Estimate classroom occupancy.
-- Support row-wise occupancy monitoring for targeted energy control.
-- Integrate environmental sensors for intelligent energy management.
-- Provide a dashboard for occupancy, attendance, and energy analytics.
+- **Edge device:** Raspberry Pi 4 Model B.
+- **Camera:** Raspberry Pi Camera Module V2 (Sony IMX219, 8 MP).
+- **Face detection:** InsightFace using the `buffalo_l` model and ONNX Runtime CPU execution.
+- **Detection coverage:** Image upscaling, overlapping image tiles, coordinate restoration and OpenCV Non-Maximum Suppression (NMS).
+- **Privacy processing:** Face crops are downsampled, Gaussian-blurred, modified with random noise, enlarged and smoothed before being placed back into the image.
+- **Region analysis:** OpenCV GrabCut body-anchor estimation with a geometric fallback; four calibrated image regions are used.
+- **Backend:** FastAPI served by Uvicorn on the Raspberry Pi.
+- **Frontend:** React 18 and Vite 6, with Recharts and Lucide React for dashboard presentation.
+- **Hosting / remote demo:** Frontend on Vercel; Cloudflare Tunnel can expose the local API through HTTPS.
 
-## 3. Proposed Technologies
-
-| Component | Technology |
-|---|---|
-| Main controller | Raspberry Pi 4 or Raspberry Pi 5 |
-| Camera | Raspberry Pi Camera Module 3 or compatible camera |
-| Programming language | Python |
-| Object detection | YOLOv8 Nano |
-| Object tracking | ByteTrack |
-| Computer vision | OpenCV |
-| Web dashboard | Flask, HTML, CSS, JavaScript |
-| Database | SQLite |
-| Sensors | LDR, temperature sensor, acoustic sensor |
-| Appliance control | Relay module |
-| Communication | Wi-Fi |
-
-## 4. System Architecture
+## Approach B processing flow
 
 ```text
-Camera
-   |
-   v
-YOLO Person Detection
-   |
-   v
-ByteTrack Object Tracking
-   |
-   v
-Virtual Line Crossing
-   |
-   +---- Outside to Inside: Entering
-   |
-   +---- Inside to Outside: Exiting
-   |
-   v
-Occupancy Count
-   |
-   v
-Row-Based Occupancy Estimation
-   |
-   v
-Energy Management
-   |
-   +---- LDR: Ambient Light Monitoring
-   +---- Temperature: Fan Control Logic
-   +---- Relay: Appliance Switching
-   +---- Acoustic Sensor: Noise Monitoring
-   |
-   v
-Database and Dashboard
+Raspberry Pi Camera V2 / classroom image
+                  |
+                  v
+             main.py
+          Load and validate
+                  |
+                  v
+        face_detector.py
+   InsightFace + image scaling
+     + overlapping image tiles
+          + duplicate NMS
+                  |
+                  v
+          anonymizer.py
+   Downsample -> blur -> noise
+       -> resize -> smoothing
+                  |
+                  v
+             utils.py
+       GrabCut body anchor
+        or geometric fallback
+                  |
+                  v
+       Four calibrated regions
+ BACK_LEFT | BACK_RIGHT | FRONT_LEFT | FRONT_RIGHT
+                  |
+                  v
+      Images + occupancy.txt
+                  |
+                  v
+          FastAPI backend
+                  |
+           Cloudflare Tunnel
+                  |
+                  v
+       React / Vite dashboard
+             on Vercel
 ```
 
-## 5. Project Modules
+### Important interpretation of the current algorithm
 
-### Person Detection
-YOLO detects people in camera frames and generates bounding boxes.
+The current Approach B source described in the project documentation assigns a region using the estimated **body anchor** produced by GrabCut or the geometric fallback. It does not assign the region from the face centre. The four current polygons are contiguous; the central aisle is not represented as a separate unassigned region. These details should be changed in code and retested if the final project requirement specifies face-centre assignment or an aisle exclusion.
 
-### Object Tracking
-ByteTrack associates detections across frames and assigns temporary tracking IDs.
+## Dashboard
 
-### Entry and Exit Detection
-A virtual line is configured at the classroom entrance. When a tracked person crosses it, the system determines the crossing direction and generates an entry or exit event.
+The dashboard is organized around the stages of the image-processing pipeline:
 
-### Occupancy Management
-The system maintains an estimated occupancy count based on detected entry and exit events. Row-level occupancy can be estimated using configured classroom regions.
+1. **Overview** — total occupancy, active regions (out of four), camera status, processing status and region-wise distribution.
+2. **Face Detection** — input image and face-detection result.
+3. **Face Anonymization** — detected image and anonymized result.
+4. **Zone Division** — anonymized image with region boundaries and occupancy annotations.
+5. **Final Classroom Result** — final annotated classroom image.
+6. **Live Monitoring** — periodically refreshed backend data and images.
 
-### Energy Management
-Environmental sensor readings and occupancy estimates can be used to determine whether classroom lights and fans should be switched on or off.
+The frontend uses `VITE_API_BASE_URL` for the backend base URL and `VITE_REFRESH_MS` for the refresh interval (default: 10,000 ms). Vite environment variables are embedded in the public frontend build; do not place secrets in `VITE_*` variables.
 
-### Dashboard
-The proposed dashboard displays occupancy information, entry/exit events, sensor readings, attendance records, and energy-management status.
+## Output files
 
-## 6. Hardware Requirements
+The Approach B pipeline produces the following files in its configured output directory:
 
-- Raspberry Pi 4 (4 GB RAM) or Raspberry Pi 5 (4 GB RAM)
-- Compatible camera
-- MicroSD card
-- Suitable Raspberry Pi power supply
-- Relay module
-- LDR sensor
-- Temperature sensor
-- Acoustic sensor
-- Jumper wires and connectors
-- Lights and fans for controlled demonstration
+| File | Purpose |
+|---|---|
+| `input.jpg` | Original input copy |
+| `detected.jpg` | Face-detection visualization |
+| `anonymized.jpg` | Face-anonymized image |
+| `zone_division.jpg` | Region and occupancy visualization |
+| `classroom_result.jpg` | Final annotated result |
+| `occupancy.txt` | Text occupancy and processing report |
 
-An RFID reader may be added if verified student identity is required for attendance.
+The backend is configured to read the output directory and serve the images and report through its API.
 
-## 7. Software Requirements
+## Repository structure
 
-- Raspberry Pi OS 64-bit
-- Python 3
-- OpenCV
-- Ultralytics
-- NumPy
-- Flask
-- SQLite
-- Raspberry Pi GPIO libraries, as required by the selected hardware
+The repository contains the Python image-processing modules at its root. The integrated dashboard/backend deployment has been maintained as a separate application directory/repository during development. Keep the following conceptual structure when consolidating the complete project:
 
-## 8. Installation
+```text
+Smart-Classroom-AI-Energy-Management/
+├── main.py
+├── config.py
+├── face_detector.py
+├── anonymizer.py
+├── utils.py
+├── requirements.txt
+├── input/
+├── output/
+└── docs/
+    ├── ARCHITECTURE.md
+    ├── DEPLOYMENT.md
+    └── IMPLEMENTATION_STATUS.md
+```
 
-Clone the repository:
+See the documentation files in `docs/` for architecture, setup/deployment notes and implementation status.
+
+## Python pipeline setup
+
+Use a Python environment compatible with the installed InsightFace and ONNX Runtime wheels on the Raspberry Pi OS image. The exact Python version and package versions should be verified on the target Pi.
 
 ```bash
 git clone https://github.com/sumanthrajmosa/Smart-Classroom-AI-Energy-Management.git
 cd Smart-Classroom-AI-Energy-Management
-```
 
-Create a virtual environment:
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
 
-Install dependencies after the project’s `requirements.txt` has been prepared:
-
-```bash
 pip install -r requirements.txt
 ```
 
-Download the compatible YOLO model weights according to the project setup instructions.
-
-## 9. Running the Project
-
-After implementing and configuring the project modules, start the detection program using:
+Place the classroom image at the path configured by `config.py` (the current uploaded Approach B configuration uses an input directory and supports the configured classroom image names), then run:
 
 ```bash
 python main.py
 ```
 
-If the dashboard is implemented as a separate application, start it using the documented dashboard command.
+Inspect the generated images and occupancy report in the output directory. The first InsightFace run may need to download model assets; ensure the Pi has network access and enough free storage.
 
-Configure the camera source, virtual line position, GPIO pins, and sensor settings before running the system on the Raspberry Pi.
+> **Dependency note:** Review `requirements.txt` against the exact target Raspberry Pi OS/Python version before installation. Deep-learning packages and model dependencies can be platform-sensitive. Do not assume every optional package listed in the file is required by the current Approach B pipeline.
 
-## 10. Expected Output
+## FastAPI backend and dashboard deployment
 
-The completed system is intended to display:
+The dashboard/backend application is maintained separately from the root Python pipeline. The deployed demonstration uses:
 
-- Detected people with bounding boxes and tracking IDs
-- Entry and exit events
-- Estimated classroom occupancy
-- Row occupancy status
-- Environmental sensor readings
-- Appliance-control status
-- Dashboard analytics
+- FastAPI backend running on the Raspberry Pi at `127.0.0.1:8000`.
+- Uvicorn to serve the FastAPI application.
+- Cloudflare Tunnel for remote HTTPS access to the local backend.
+- React/Vite frontend deployed on Vercel.
 
-Actual output depends on the implemented modules and connected hardware.
+Typical backend launch command (from the backend project directory, after activating its virtual environment):
 
-## 11. Applications
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-- Smart classrooms
-- Educational institutions
-- Energy-efficient buildings
-- Occupancy monitoring
-- Automated classroom management
-- IoT-based building automation
+Start the temporary Cloudflare Quick Tunnel in another terminal:
 
-## 12. Future Enhancements
+```bash
+cloudflared tunnel --url http://127.0.0.1:8000
+```
 
-- RFID-based identity verification
-- Improved row-wise occupancy detection
-- Real-time dashboard updates
-- Energy-consumption measurement using power sensors
-- Historical occupancy analytics
-- Privacy-preserving video processing
-- Edge AI acceleration
+Set the exact generated tunnel URL as `VITE_API_BASE_URL` in the Vercel project and redeploy the frontend. A Quick Tunnel URL can change after restarting the tunnel, so update the environment variable when that happens. Keep both Uvicorn and the tunnel process running during the demonstration.
 
-## 13. Limitations
+The backend endpoints used by the dashboard are:
 
-Camera-based tracking may produce missed detections or ID switches in crowded scenes. Entry/exit counting also depends on correct camera placement and virtual-line configuration. Tracking IDs alone do not establish a student's identity; identity-based attendance requires an additional authentication mechanism.
+- `/api/health`
+- `/api/dashboard`
+- `/api/classroom-image`
+- `/api/images`
+- `/api/images/{image_name}`
+- `/api/occupancy-report`
 
-## 14. Contributors
+## Broader smart-classroom design
 
-**Project:** AI-Based Smart Classroom Attendance and Energy Management System
+The overall project design also considers:
 
-**GitHub:** [sumanthrajmosa](https://github.com/sumanthrajmosa)
+- Teacher-created timetable slots.
+- RFID reader and tags for student/slot validation.
+- ESP32-S3 as a sensor/controller node.
+- PIR-based presence sensing and ultrasonic backup sensing.
+- Light-intensity and temperature sensing.
+- Acoustic/noise monitoring.
+- Relay modules for electrical appliance switching.
+- Occupancy and energy analytics for administrators.
 
-## 15. License
+These are extension/integration targets unless the corresponding hardware workflow has been physically connected and verified. The camera dashboard by itself does not prove automatic energy savings.
 
-This project is distributed under the MIT License. See the `LICENSE` file for details.
+## Privacy and security
+
+- Expose anonymized images rather than original identifiable classroom images.
+- The described demo configuration had an empty `CLASSROOM_API_KEY`; optional API-key protection is therefore not active in that setup.
+- Do not expose student identities, attendance records or original classroom photographs through a public tunnel.
+- Use authentication, HTTPS, access restrictions and an appropriate retention policy before deployment in a real classroom.
+- Visual blurring/pixel modification is a privacy measure, not a mathematical guarantee of irreversible anonymization.
+
+## Known limitations and validation
+
+- Face detection can miss small, occluded or turned faces.
+- Overlapping tiles improve coverage but increase inference work.
+- GrabCut can select desks/background/nearby people in crowded scenes.
+- The geometric fallback is approximate.
+- Body-anchor region assignment can differ from face-centre-based manual calibration.
+- Current image processing should not be described as validated real-time video tracking without measured throughput.
+- Detection accuracy, region-assignment accuracy, latency and energy savings must be measured on a labelled test set and physical power measurements before numerical claims are made.
+
+## Contributors
+
+**Team 107 — Amrita Vishwa Vidyapeetham, School of Computing**
+
+- MEDAPATI NAGA VENKATA CHARAN REDDY
+- MOSA SUMANTHRAJ
+- KUDIRELLA SAI TEJASH
+- PALASANI RAMA VENKATA LATHAN
+- ASWIN POTTA
+
+**Project Guide:** Dr. R. Karthi
+
+## License
+
+This project is distributed under the MIT License. See [LICENSE](LICENSE).
