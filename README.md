@@ -94,7 +94,7 @@ The backend is configured to read the output directory and serve the images and 
 
 ## Repository structure
 
-The repository contains the Python image-processing modules at its root. The integrated dashboard/backend deployment has been maintained as a separate application directory/repository during development. Keep the following conceptual structure when consolidating the complete project:
+The repository contains the Python image-processing modules at its root. The FastAPI backend and React/Vite dashboard are now included in this repository under `backend/` and `frontend/`. The deployed dashboard can still use Vercel and a Cloudflare Tunnel to reach the Raspberry Pi API.
 
 ```text
 Smart-Classroom-AI-Energy-Management/
@@ -104,8 +104,23 @@ Smart-Classroom-AI-Energy-Management/
 ├── anonymizer.py
 ├── utils.py
 ├── requirements.txt
-├── input/
-├── output/
+├── input/                       # Add local classroom images; not committed
+├── output/                      # Generated outputs; not committed
+├── backend/
+│   ├── app/
+│   │   └── main.py              # FastAPI routes
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── style.css
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── .env.example
+│   └── README.md
 └── docs/
     ├── ARCHITECTURE.md
     ├── DEPLOYMENT.md
